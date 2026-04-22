@@ -1,0 +1,33 @@
+# Build artifacts
+/bin/
+/build/
+/dist/
+/caching-proxy
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.out
+
+# Local configuration
+.env
+.env.*
+!.env.example
+
+# Editor and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs and temporary files
+*.log
+tmp/
+temp/
+
+# Archives and local Codex metadata
+*.zip
+.codex
