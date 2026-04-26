@@ -12,21 +12,18 @@ type MemoryStore struct {
 }
 
 func NewMemoryStore() *MemoryStore {
-	return &MemoryStore{
-		items: make(map[string]*domain.CacheEntry),
-	}
+	return &MemoryStore{items: make(map[string]*domain.CacheEntry)}
 }
 
-func (s *MemoryStore) Get(key string) (*domain.CacheEntry, bool) {
+func (s *MemoryStore) Get(key string) (*domain.CacheEntry, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	entry, ok := s.items[key]
 	if !ok {
-		return nil, false
+		return nil, domain.ErrCacheMiss
 	}
-
-	return cloneEntry(entry), true
+	return cloneEntry(entry), nil
 }
 
 func (s *MemoryStore) Set(key string, entry *domain.CacheEntry) error {
@@ -49,43 +46,30 @@ func cloneEntry(entry *domain.CacheEntry) *domain.CacheEntry {
 	if entry == nil {
 		return nil
 	}
-
-	return &domain.CacheEntry{
-		StatusCode: entry.StatusCode,
-		Headers:    cloneHeaders(entry.Headers),
-		Body:       cloneBytes(entry.Body),
-		CachedAt:   entry.CachedAt,
-	}
+	cloned := *entry
+	cloned.Headers = cloneHeaders(entry.Headers)
+	cloned.Body = cloneBytes(entry.Body)
+	return &cloned
 }
 
 func cloneHeaders(headers map[string][]string) map[string][]string {
 	if headers == nil {
 		return nil
 	}
-
 	cloned := make(map[string][]string, len(headers))
-	for key, values := range headers {
-		cloned[key] = cloneStringSlice(values)
+	for k, v := range headers {
+		cp := make([]string, len(v))
+		copy(cp, v)
+		cloned[k] = cp
 	}
 	return cloned
 }
 
-func cloneBytes(values []byte) []byte {
-	if values == nil {
+func cloneBytes(b []byte) []byte {
+	if b == nil {
 		return nil
 	}
-
-	cloned := make([]byte, len(values))
-	copy(cloned, values)
-	return cloned
-}
-
-func cloneStringSlice(values []string) []string {
-	if values == nil {
-		return nil
-	}
-
-	cloned := make([]string, len(values))
-	copy(cloned, values)
-	return cloned
+	cp := make([]byte, len(b))
+	copy(cp, b)
+	return cp
 }
