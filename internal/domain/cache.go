@@ -1,6 +1,11 @@
 package domain
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+var ErrCacheMiss = errors.New("cache miss")
 
 type CacheEntry struct {
 	StatusCode int
@@ -10,7 +15,7 @@ type CacheEntry struct {
 }
 
 type CacheStore interface {
-	Get(key string) (*CacheEntry, bool)
+	Get(key string) (*CacheEntry, error)
 	Set(key string, entry *CacheEntry) error
 	Clear() error
 }

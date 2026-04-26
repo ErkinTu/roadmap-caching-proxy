@@ -2,6 +2,7 @@ package origin
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,8 @@ import (
 	"caching-proxy/internal/usecase"
 )
 
+var ErrInvalidOrigin = errors.New("invalid origin URL")
+
 type Client struct {
 	baseURL    *url.URL
 	httpClient *http.Client
@@ -19,41 +22,38 @@ type Client struct {
 func NewClient(rawBaseURL string, httpClient *http.Client) (*Client, error) {
 	baseURL, err := url.Parse(rawBaseURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", ErrInvalidOrigin, err)
 	}
 	if baseURL.Scheme == "" || baseURL.Host == "" {
-		return nil, fmt.Errorf("origin must include scheme and host")
+		return nil, fmt.Errorf("%w: must include scheme and host", ErrInvalidOrigin)
 	}
 
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
 
-	return &Client{
-		baseURL:    baseURL,
-		httpClient: httpClient,
-	}, nil
+	return &Client{baseURL: baseURL, httpClient: httpClient}, nil
 }
 
 func (c *Client) Do(method, path, rawQuery string, headers map[string][]string, body []byte) (*usecase.OriginResponse, error) {
-	targetURL := c.buildURL(path, rawQuery)
+	target := c.buildURL(path, rawQuery)
 
-	req, err := http.NewRequest(method, targetURL, bytes.NewReader(body))
+	req, err := http.NewRequest(method, target, bytes.NewReader(body))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("build origin request: %w", err)
 	}
 	req.Header = cloneHeaders(headers)
 	req.Host = c.baseURL.Host
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("call origin: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read origin body: %w", err)
 	}
 
 	return &usecase.OriginResponse{
@@ -77,11 +77,9 @@ func joinPath(basePath, requestPath string) string {
 		}
 		return requestPath
 	}
-
 	if requestPath == "" || requestPath == "/" {
 		return basePath
 	}
-
 	return strings.TrimRight(basePath, "/") + "/" + strings.TrimLeft(requestPath, "/")
 }
 
@@ -89,12 +87,11 @@ func cloneHeaders(headers map[string][]string) map[string][]string {
 	if headers == nil {
 		return nil
 	}
-
 	cloned := make(map[string][]string, len(headers))
-	for key, values := range headers {
-		copiedValues := make([]string, len(values))
-		copy(copiedValues, values)
-		cloned[key] = copiedValues
+	for k, v := range headers {
+		cp := make([]string, len(v))
+		copy(cp, v)
+		cloned[k] = cp
 	}
 	return cloned
 }
